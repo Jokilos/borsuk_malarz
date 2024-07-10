@@ -1,7 +1,7 @@
 'use strict';
 
 const eps = 0.001; // epsilon
-const debug = false; // true, gdy uruchamiamy stronę na komputerze w celach testowych
+const debug = true; // true, gdy uruchamiamy stronę na komputerze w celach testowych
 let ws;
 let borsuk;
 let fileReady = false;
@@ -71,7 +71,7 @@ document.getElementById('stop').addEventListener('click', function(event) {
 
 // Wyświetla informacje o obecnym stanie aplikacji w interfejsie użytkownika.
 function infoDisplay(text, is_error){
-    info = document.getElementById('info');
+    var info = document.getElementById('info');
     info.textContent = text;
 
     if(!is_error){
@@ -282,6 +282,9 @@ class Borsuk{
     // Wysłanie polecenia jazdy do przodu z odpowiednią mocą
     // lewego i prawego silnika.
     async sendGo(sl, sr){
+        if(debug)
+            console.log(`engines l ${sl}, r ${sr}`);
+        
         if (!isNaN(sl) && !isNaN(sr) && fileReady)
         {
             try
