@@ -1,7 +1,7 @@
 'use strict';
 
 const eps = 0.001; // epsilon
-const debug = true; // true, gdy uruchamiamy stronę na komputerze w celach testowych
+const debug = false; // true, gdy uruchamiamy stronę na komputerze w celach testowych
 let ws;
 let borsuk;
 let fileReady = false;
