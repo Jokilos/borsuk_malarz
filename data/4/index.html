@@ -1,0 +1,30 @@
+<!DOCTYPE HTML>
+<!-- Paweł Klimczewski, 21 czerwca 2022. -->
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programowanie mikrokontrolerów - sterowanie pojazdem Forbot</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <p>Tutaj umieść plik z opisem obrazu, jaki ma prześledzić borsuk:</p>
+        <input type="file" id="fileInput">
+        <button id="start"> Zacznij rysować </button>
+        <button id="stop"> Przestań rysować </button>
+        <div id="info"></div>
+        <pre>
+Dostępne komendy:<br>
+x y lineto - poprowadź linię do punktu (x, y)<br>
+x y rlineto - poprowadź linię oddaloną o (x, y) od obecnego punktu<br>
+phi r rlinerot - obróć o kąt phi [0, 359] i pojedź do przodu o r
+        </pre>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE HTML>
+<!-- Paweł Klimczewski, 21 czerwca 2022. -->
+<html>
+  <head>
+    <title>Programowanie mikrokontrolerów - sterowanie pojazdem Forbot</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <style>
+      * {
+        font-size: 1cm;
+      }
+      body {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+        padding: 0;
+        margin: 0;
+      }
+      .buttons {
+        display: flex;
+        flex-flow: column;
+        text-align: center;
+        flex-grow: 1;
+      }
+      .buttons > * {
+        margin-top: 1cm;
+      }
+      .motorbar {
+        position: relative;
+        width: 1cm;
+        margin-left: 1cm;
+        margin-right: 1cm;
+        background-color: #fff;
+        border: 1px solid #000;
+      }
+      .motorbar > span {
+        position: absolute;
+        top: 50%;
+        width: 100%;
+        height: 0%;
+        display: block;
+        background-color: green;
+        color: #fff;
+      }
+    </style>
+    <script>
+    'use strict';
+    window.addEventListener('load', function ()
+    {
+      let ws
+      let running = false
+      let permission_btn = document.getElementById('permission')
+      let start_stop_btn = document.getElementById('start-stop')
+      let beta_div = document.getElementById('beta')
+      let gamma_div = document.getElementById('gamma')
+      let left_motorbar = document.getElementById('left-motorbar')
+      let right_motorbar = document.getElementById('right-motorbar')
+      //---------------------------------------------------------------------
+      function set_motorbar(e, v)
+      {
+        v = Math.trunc(100*v/128/2)
+        e.style.top = v >= 0 ? "unset" : "50%"
+        e.style.bottom = v >= 0 ? "50%" : "unset"
+        e.style.background = v >= 0 ? "green" : "red"
+        e.style.height = Math.abs(v) + "%"
+      }
+      //---------------------------------------------------------------------
+      function stop()
+      {
+        if (ws.readyState == 1)
+        {
+          try
+          {
+            const buf = new Int8Array(3)
+            buf[0] = 0 // Prędkość lewego silnika.
+            buf[1] = 0 // Prędkość prawego silnika.
+            buf[2] = 0 // Bez automatycznego zatrzymania silników.
+            ws.send(buf)
+          }
+          catch (error)
+          {
+            window.location.reload()
+          }
+        }
+      }
+      //---------------------------------------------------------------------
+      function initWebSocket()
+      {
+        ws = new WebSocket(
+          (document.location.protocol == 'https:' ? 'wss://' : 'ws://')
+          + window.location.hostname + '/ws')
+        //-------------------------------------------------------------------
+        ws.addEventListener('close', function ()
+        {
+          setTimeout(initWebSocket, 1000)
+        })
+      }
+      //---------------------------------------------------------------------
+      function send(turn, speed)
+      {
+        const z = 5
+        const m = 20
+        // Na podstawie turn z zakresu [-45..45] obliczam d z zakresu
+        // [-100..100], które odpowiada za wielkość skrętu.
+        let d = Math.trunc((turn+45)*20/9-100)
+        // Na podstawie speed z zakresu [0..90] obliczam s z zakresu
+        // [-100..100], które odpowiada za prędkość.
+        let s = -Math.trunc(speed*20/9-100)
+        // Aby wygodnie zatrzymywać pojazd przeliczam s. s z zakresu [-z..z]
+        // zmieniam na 0, a pozostałe wartości s zmniejszam (odpowiednio
+        // zwiększam) o z. Nowe s jest z zakresu [-100+z..100-z]
+        if (s > z)
+          s = s - z
+        else if (s < -z)
+          s = s + z
+        else
+          s = 0
+        // Skręcanie to zmniejszanie prędkości silnika po stronie, w którą
+        // chcę skręcić. Prędkość zmniejszam do zera, a następnie zmieniam
+        // kierunek obrotów i zwiększam prędkość.
+        let sl = s, sr = s
+        if (d>0)
+        {
+          sr = Math.trunc((1-d/50)*s)
+        }
+        else if (d<0)
+        {
+          sl = Math.trunc((1+d/50)*s)
+        }
+        // Dla niewielkich wartości wypełnienia sygnału PWM silnik nie jest w
+        // stanie pokonać oporów ruchu i pozostaje zatrzymany. Sterowanie
+        // silnikiem rozpoczynam od wypełnienia określonego przez parametr m.
+        if (sl)
+          sl = Math.trunc(sl/(100-z)*(127-m) + (sl > 0 ? m : -m))
+        if (sr)
+          sr = Math.trunc(sr/(100-z)*(127-m) + (sr > 0 ? m : -m))
+
+        if (!isNaN(sl) && !isNaN(sr))
+        {
+          try
+          {
+            const buf = new Int8Array(3)
+            buf[0] = sl // Prędkość lewego silnika.
+            buf[1] = sr // Prędkość prawego silnika.
+            buf[2] = 1  // Zatrzymanie silników w przypadku przerwy
+                        // w transmisji dłuższej niż 0,5 sekundy.
+            ws.send(buf)
+            set_motorbar(left_motorbar, sl)
+            set_motorbar(right_motorbar, sr)
+          }
+          catch (error)
+          {
+            window.location.reload()
+          }
+        }
+      }
+      //---------------------------------------------------------------------
+      function init_orientation()
+      {
+        // Na podstawie https://developer.mozilla.org/en-US/docs/Web/Events/Orientation_and_motion_data_explained
+        //-------------------------------------------------------------------
+        window.addEventListener("compassneedscalibration", function (event)
+        {
+          alert('Your compass needs calibrating! Wave your device in a '
+            + 'figure-eight motion')
+          event.preventDefault()
+        }, true)
+        //-------------------------------------------------------------------
+        window.addEventListener("deviceorientation", function (event)
+        {
+          // Obrót wokół osi OY. Odpowiada za skręcanie.
+          let beta = parseInt(event.beta)
+          beta_div.innerHTML = "&beta; = " + beta
+          beta = beta > 90 ? 180 - beta : beta < -90 ? -180 - beta : beta
+          beta = Math.max(-45, Math.min(beta, 45))
+          // Obrót wokół osi OX. Odpowiada za prędkość.
+          let gamma = parseInt(event.gamma)
+          gamma_div.innerHTML = "&gamma; = " + gamma
+          gamma = gamma < -45 ? 90 : gamma < 0 ? 0 : gamma;
+          if (ws.readyState == 1 && running)
+          {
+            send(beta, gamma)
+          }
+        }, true)
+      }
+      //---------------------------------------------------------------------
+      initWebSocket()
+      if (typeof DeviceOrientationEvent === 'undefined')
+      {
+        // Przeglądarka nie obsługuje czujnika położenia.
+        beta_div.innerHTML += "DeviceOrientationEvent undefined"
+      }
+      else if (DeviceOrientationEvent.requestPermission)
+      {
+        // Przeglądarki internetowe iPhone'ów i iPad'ów udostępniają dane
+        // dotyczące położenia urządzenia po wyrażeniu zgody przez
+        // użytkownika. Wywołanie funkcji requestPermission powoduje zapytanie
+        // użytkownika o zgodę. Wywołanie tej funkcji musi wynikać z
+        // interakcji użytkownika z ekranem urządzenia. W poniższym programie
+        // następuje po naciśnięciu przycisku. Dodatkowym warunkiem koniecznym
+        // dla dostępu do danych położenia urządzenia jest szyfrowane
+        // połączenie https pomiędzy urządzeniem a mikrokontrolerem.
+        permission_btn.addEventListener('click', function()
+        {
+          DeviceOrientationEvent.requestPermission().then(response =>
+          {
+            if (response == 'granted')
+            {
+              init_orientation()
+            }
+            else
+            {
+              beta_div.innerHTML = "DeviceOrientation permission: "
+                + response
+            }
+          }).catch(error => beta_div.innerHTML = error.toString())
+          permission_btn.remove()
+        })
+      }
+      else
+      {
+        permission_btn.remove()
+        init_orientation()
+      }
+      start_stop_btn.addEventListener('click', function ()
+      {
+        // Przycisk start/stop rozpoczyna (odpowiednio kończy) sterowanie
+        // pojazdem. W momencie zakończenia sterowania zatrzymuję pracę
+        // silników.
+        running = !running
+        start_stop_btn.innerText = running ? "Stop" : "Start"
+        if (!running)
+        {
+          set_motorbar(left_motorbar, 0)
+          set_motorbar(right_motorbar, 0)
+          stop()
+        }
+      })
+    })
+    </script>
+  </head>
+  <body>
+    <!-- Wskaźnik pracy lewego silnika. -->
+    <div class="motorbar"><span id="left-motorbar"></span></div>
+    <!-- Przyciski sterujące. -->
+    <div class="buttons">
+      <button id="permission">Request permission</button>
+      <button id="start-stop">Start</button>
+      <div id="beta"></div>
+      <div id="gamma"></div>
+    </div>
+    <!-- Wskaźnik pracy prawego silnika. -->
+    <div class="motorbar"><span id="right-motorbar"></span></div>
+  </body>
+</html>

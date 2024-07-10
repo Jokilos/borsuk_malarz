@@ -1,0 +1,53 @@
+<!DOCTYPE HTML>
+<!-- Paweł Klimczewski, 21 czerwca 2022. -->
+<html>
+  <head>
+    <title>Programowanie mikrokontrolerów - sterowanie pojazdem Forbot</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <style>
+      * {
+        font-size: 1cm;
+      }
+      body {
+        display: flex;
+        flex-flow: column;
+        text-align: center;
+      }
+      body > * {
+        margin-top: 1cm;
+      }
+    </style>
+    <script>
+    'use strict';
+    window.addEventListener('load', function ()
+    {
+      let s = document.getElementById("switcher")
+      if (document.location.protocol == "http:")
+      {
+        s.href = "https://" + document.location.hostname
+        s.innerText = "https"
+      }
+      else if (document.location.protocol == "https:")
+      {
+        s.href = "http://" + document.location.hostname
+        s.innerText = "http"
+      }
+      else
+      {
+        s.remove()
+      }
+    })
+    </script>
+  </head>
+  <body>
+    <a href="1/">1</a>
+    <a href="2/">2</a>
+    <a href="3/">3</a>
+    <a href="4/">4</a>
+    <a href="heap/">heap</a>
+    <a href="update/">update</a>
+    <a id="switcher"></a>
+  </body>
+</html>

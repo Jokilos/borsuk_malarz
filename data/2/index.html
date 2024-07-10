@@ -1,0 +1,124 @@
+<!DOCTYPE HTML>
+<!-- Paweł Klimczewski, 21 czerwca 2022. -->
+<html>
+  <head>
+    <title>Programowanie mikrokontrolerów - sterowanie pojazdem Forbot</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <style>
+      * {
+        font-size: 1cm;
+      }
+      label {
+        font-size: 5mm;
+      }
+      body {
+        display: flex;
+        flex-flow: column;
+      }
+      body > input, button {
+        margin-bottom: 1cm;
+      }
+    </style>
+    <script>
+    'use strict';
+    window.addEventListener('load', function (event)
+    {
+      let ws
+      let spd = document.getElementById("spd")
+      let dir = document.getElementById("dir")
+      let zero = document.getElementById("zero")
+      let pwm_min = document.getElementById("pwm_min")
+      spd.value = dir.value = 0
+      function initWebSocket()
+      {
+        ws = new WebSocket(
+          (document.location.protocol == 'https:' ? 'wss://' : 'ws://')
+          + window.location.hostname + '/ws')
+        ws.addEventListener('close', function ()
+        {
+          setTimeout(initWebSocket, 1000)
+        })
+      }
+      initWebSocket()
+      let send = function ()
+      {
+        if (ws.readyState == 1)
+        {
+          let z = parseInt(zero.value)
+          zero.value = z
+          let m = parseInt(pwm_min.value)
+          pwm_min.value = m
+          let s =  parseInt(spd.value) // s z zakresu [-100..100]
+          let d = -parseInt(dir.value) // d z zakresu [-100..100]
+          // Aby wygodnie zatrzymywać pojazd przeliczam s. s z zakresu [-z..z]
+          // zmieniam na 0, a pozostałe wartości s zmniejszam (odpowiednio
+          // zwiększam) o z.
+          if (s > z)
+            s = s - z
+          else if (s < -z)
+            s = s + z
+          else
+            s = 0
+          // Skręcanie to zmniejszanie prędkości silnika po stronie, w którą
+          // chcę skręcić. Prędkość zmniejszam do zera, a następnie zmieniam
+          // kierunek obrotów i zwiększam prędkość.
+          let sl = s, sr = s
+          if (d>0)
+          {
+            sr = Math.trunc((1-d/50)*s)
+          }
+          else if (d<0)
+          {
+            sl = Math.trunc((1+d/50)*s)
+          }
+          // Dla niewielkich wartości wypełnienia sygnału PWM silnik nie jest
+          // w stanie pokonać oporów ruchu i pozostaje zatrzymany. Sterowanie
+          // silnikiem rozpoczynam od wypełnienia określonego przez parametr
+          // „pwm min”.
+          if (sl)
+            sl = Math.trunc(sl/(100-z)*(127-m) + (sl > 0 ? m : -m))
+          if (sr)
+            sr = Math.trunc(sr/(100-z)*(127-m) + (sr > 0 ? m : -m))
+
+          if (!isNaN(sl) && !isNaN(sr))
+          {
+            try
+            {
+              const buf = new Int8Array(3)
+              buf[0] = sl // Prędkość lewego silnika.
+              buf[1] = sr // Prędkość prawego silnika.
+              buf[2] = 0  // Bez automatycznego zatrzymania silników.
+              ws.send(buf)
+            }
+            catch (error)
+            {
+              window.location.reload()
+            }
+          }
+        }
+      }
+      document.getElementById('reset').addEventListener('click', function()
+      {
+        spd.value = 0
+        dir.value = 0
+        send()
+      })
+      spd.addEventListener('input', send)
+      dir.addEventListener('input', send)
+    })
+    </script>
+  </head>
+  <body>
+    <label>speed</label>
+    <input id="spd" type="range" min="-100" max="100" value="0">
+    <label>direction</label>
+    <input id="dir" type="range" min="-100" max="100" value="0">
+    <button id="reset">Stop</button>
+    <label>zero width</label>
+    <input id="zero" value="5">
+    <label>pwm min</label>
+    <input id="pwm_min" value="20">
+  </body>
+</html>

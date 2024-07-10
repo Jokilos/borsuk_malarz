@@ -1,0 +1,74 @@
+<!DOCTYPE HTML>
+<!-- Paweł Klimczewski, 21 czerwca 2022. -->
+<html>
+  <head>
+    <title>Programowanie mikrokontrolerów - sterowanie pojazdem Forbot</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <style>
+      * {
+        font-size: 1cm;
+      }
+      label {
+        font-size: 5mm;
+      }
+      body {
+        display: flex;
+        flex-flow: column;
+      }
+      body > input {
+        margin-bottom: 1cm;
+      }
+    </style>
+    <script>
+    'use strict';
+    window.addEventListener('load', function (event)
+    {
+      let ws
+      let l = document.getElementById("l");
+      let r = document.getElementById("r");
+      function initWebSocket()
+      {
+        ws = new WebSocket(
+          (document.location.protocol == 'https:' ? 'wss://' : 'ws://')
+          + window.location.hostname + '/ws')
+        ws.addEventListener('close', function ()
+        {
+          setTimeout(initWebSocket, 1000)
+        })
+      }
+      initWebSocket()
+      document.getElementById('send').addEventListener('click', function()
+      {
+        let li = Math.min(Math.max(parseInt(l.value), -128), 127)
+        let ri = Math.min(Math.max(parseInt(r.value), -128), 127)
+        l.value = li
+        r.value = ri
+        if (!isNaN(li) && !isNaN(ri))
+        {
+          try
+          {
+            const buf = new Int8Array(3)
+            buf[0] = li // Prędkość lewego silnika.
+            buf[1] = ri // Prędkość prawego silnika.
+            buf[2] = 0  // Bez automatycznego zatrzymania silników.
+            ws.send(buf)
+          }
+          catch (error)
+          {
+            window.location.reload()
+          }
+        }
+      })
+    })
+    </script>
+  </head>
+  <body>
+    <label>left motor &isin; -128..127</label>
+    <input id="l" value="0">
+    <label>right motor &isin; -128..127</label>
+    <input id="r" value="0">
+    <button id="send">Send</button>
+  </body>
+</html>
