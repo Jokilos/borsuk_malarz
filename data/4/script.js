@@ -329,10 +329,10 @@ class Borsuk{
         const turns = Math.round(2 * dphi / Math.PI);
         
         if(clockwise){
-            var mul1 = 2, mul2 = 1;
+            var mul1 = 1.88, mul2 = 1;
         }
         else{
-            var mul1 = 1, mul2 = 2;
+            var mul1 = 1, mul2 = 1.88;
         }
         
         // jeden obrót o pi/2
